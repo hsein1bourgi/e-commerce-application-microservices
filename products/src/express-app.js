@@ -9,6 +9,9 @@ module.exports = async (app) => {
   app.use(express.json());
   app.use(cors());
   app.use(express.static(__dirname + "/public"));
+  app.get('/health', (req, res) => {
+        res.status(200).json({ status: "OK", service: "products" });
+    });
 
   //api
   // appEvents(app);

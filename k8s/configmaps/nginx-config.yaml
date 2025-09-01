@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  nginx.conf: |
+    user  nginx;
+    worker_processes  auto;
+
+    events { worker_connections 1024; }
+
+    http {
+      include       /etc/nginx/mime.types;
+      default_type  application/octet-stream;
+      sendfile      on;
+      keepalive_timeout  65;
+
+      map $http_x_forwarded_proto $forwarded_proto {
+        default $http_x_forwarded_proto;
+        ""      $scheme;
+      }
+
+      server {
+        listen 80;
+
+        # k8s health endpoint
+        location = /healthz {
+          default_type text/plain;
+          return 200 'ok';
+        }
+
+        # Note the trailing "/" after the port to strip the prefix
+        location /products/ {
+          proxy_pass http://products-service.default.svc.cluster.local:8002/;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $forwarded_proto;
+        }
+
+        location /shopping/ {
+          proxy_pass http://shopping-service.default.svc.cluster.local:8003/;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $forwarded_proto;
+        }
+
+        location /customer/ {
+          proxy_pass http://customer-service.default.svc.cluster.local:8001/;  # <-- 8001
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $forwarded_proto;
+        }
+      }
+    }

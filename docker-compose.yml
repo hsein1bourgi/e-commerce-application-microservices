@@ -1,64 +1,93 @@
-version: "3"
+version: "3.9"
 services:
   nosql-db:
-    image: mongo
+    image: mongo:6.0
+    container_name: nosql-db
     ports:
       - "27017:27017"
-    container_name: nosql-db
     volumes:
       - ./db/:/data/db
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
   products:
     build:
-      dockerfile: Dockerfile
       context: ./products
+      dockerfile: Dockerfile
     container_name: products
     ports:
       - "8002:8002"
     restart: always
     depends_on:
-      - "nosql-db"
+      rabbitmq:
+        condition: service_healthy
+      nosql-db:
+        condition: service_started
     volumes:
       - .:/app
       - /app/products/node_modules
     env_file:
       - ./products/.env.dev
+
   shopping:
     build:
-      dockerfile: Dockerfile
       context: ./shopping
+      dockerfile: Dockerfile
     container_name: shopping
     ports:
       - "8003:8003"
     restart: always
     depends_on:
-      - "nosql-db"
+      rabbitmq:
+        condition: service_healthy
+      nosql-db:
+        condition: service_started
     volumes:
       - .:/app
       - /app/shopping/node_modules
     env_file:
       - ./shopping/.env.dev
+
   customer:
     build:
-      dockerfile: Dockerfile
       context: ./customer
+      dockerfile: Dockerfile
     container_name: customer
     ports:
       - "8001:8001"
     restart: always
     depends_on:
-      - "nosql-db"
+      rabbitmq:
+        condition: service_healthy
+      nosql-db:
+        condition: service_started
     volumes:
-      - .:/app/
+      - .:/app
       - /app/customer/node_modules
     env_file:
       - ./customer/.env.dev
+
   nginx-proxy:
     build:
-      dockerfile: Dockerfile
       context: ./proxy
+      dockerfile: Dockerfile
+    container_name: nginx-proxy
     depends_on:
       - products
       - shopping
       - customer
     ports:
-      - 80:80
+      - "80:80"

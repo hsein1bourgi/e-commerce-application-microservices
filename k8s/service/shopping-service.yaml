@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: shopping-service
+  labels:
+    app: shopping
+spec:
+  type: ClusterIP
+  selector:
+    app: shopping        # MUST match labels in deployment/shopping-deployment.yaml
+  ports:
+    - name: http
+      port: 8003         # ClusterIP port NGINX will call
+      targetPort: 8003   # Container port exposed by the shopping pod

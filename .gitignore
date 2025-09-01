@@ -1,7 +1,22 @@
-.DS_Store
-**/.log
-**/.env
-**/.DS_Store
-**/node_modules
-**/.env*
-.todo
+# Node.js dependencies
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Local environment files
+.env
+*.env
+
+# MongoDB local database files
+db/
+*.lock
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Docker
+*.tar
+docker-compose.yaml
