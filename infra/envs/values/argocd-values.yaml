@@ -1,0 +1,9 @@
+# ArgoCD basic overrides
+server:
+  service:
+    type: LoadBalancer   
+  ingress:
+    enabled: false       
+configs:
+  secret:
+    argocdServerAdminPassword: ""

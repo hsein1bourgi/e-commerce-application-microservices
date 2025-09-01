@@ -5,7 +5,6 @@ terraform{
         region = "us-east-1"
         dynamodb_table = "ecommeerce-terraform-lock-table"
         encrypt = true
-      name = "value"
     }
     
 }
