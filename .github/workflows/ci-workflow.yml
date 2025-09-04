@@ -21,34 +21,39 @@ env:
 
 jobs:
   detect-changes:
+    name: Detect changed services
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
+
       - id: changes
-        uses: dorny/paths-filter@v2
+        uses: dorny/paths-filter@v3
         with:
-          filters: 
-            customer: 
-              - '/customer/**'
+          filters: |
+            customer:
+              - 'customer/**'
               - '!customer/node_modules/**'
-            products: 
-              - '/products/**'
+            products:
+              - 'products/**'
               - '!products/node_modules/**'
-            shopping: 
-              - '/shopping/**'
+            shopping:
+              - 'shopping/**'
               - '!shopping/node_modules/**'
+
       - id: set-matrix
         run: |
           list=()
-          [["${{ steps.changes.outputs.customer }}"] == "true" ] && list+=("customer")
-          [["${{ steps.changes.outputs.products }}"] == "true" ] && list+=("products")
-          [["${{ steps.changes.outputs.shopping }}"] == "true" ] && list+=("shopping")
+          [[ "${{ steps.changes.outputs.customer }}" == "true" ]] && list+=('"customer"')
+          [[ "${{ steps.changes.outputs.products }}" == "true" ]] && list+=('"products"')
+          [[ "${{ steps.changes.outputs.shopping }}" == "true" ]] && list+=('"shopping"')
+
           if [ ${#list[@]} -eq 0 ]; then
-            echo "No changes detected. Exiting..."
-            exit 0
+            echo 'matrix={"service":[]}' >> "$GITHUB_OUTPUT"
+          else
+            echo "matrix={\"service\":[${list[*]}]}" >> "$GITHUB_OUTPUT"
           fi
-          echo "matrix={\"include\":[${list[@]/#/{\"service\":\"}}${list[@]/%/\"}]}]" >> $GITHUB_OUTPUT
-      - name: Log matrix
-        run: echo ${{ steps.set-matrix.outputs.matrix }}
+
+      - name: Show computed matrix
+        run: echo '${{ steps.set-matrix.outputs.matrix }}'
