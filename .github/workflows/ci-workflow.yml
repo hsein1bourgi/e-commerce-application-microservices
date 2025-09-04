@@ -26,7 +26,8 @@ jobs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
-        id: changes
+      - id: changes
+        uses: dorny/paths-filter@v2
         with:
           filters: 
             customer: 
