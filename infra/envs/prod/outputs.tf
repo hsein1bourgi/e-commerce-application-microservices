@@ -1,6 +1,6 @@
-# -----------------------------
-# EKS Cluster Outputs
-# -----------------------------
+# # -----------------------------
+# # EKS Cluster Outputs
+# # -----------------------------
 output "eks_cluster_name" {
   description = "EKS cluster name"
   value       = module.eks.cluster_name
@@ -21,9 +21,9 @@ output "eks_oidc_provider_arn" {
   value       = module.eks.oidc_provider_arn
 }
 
-# -----------------------------
-# ECR Repositories
-# -----------------------------
+# # -----------------------------
+# # ECR Repositories
+# # -----------------------------
 output "customer_ecr_repo_url" {
   description = "ECR repo URL for customer service"
   value       = aws_ecr_repository.customer.repository_url

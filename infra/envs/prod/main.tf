@@ -1,6 +1,6 @@
 module "vpc" {
     source = "terraform-aws-modules/vpc/aws"
-    version = "~>5.0.0"
+    
 
     name = "${var.name}--vpc"
     cidr = "10.0.0.0/20"
@@ -8,57 +8,66 @@ module "vpc" {
     azs = var.azs
     
     # For  ALB and NAT gateways
-    public_subnets = [
-        "10.0.12.0/24",
-        "10.0.13.0/24",
-        "10.0.14.0/24"
-    ]
+    private_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
+    public_subnets  = ["10.0.8.0/24", "10.0.9.0/24"]
 
-    # For Eks pods nodes and pods
-    private_subnets = [
-        "10.0.0.0/22",
-        "10.0.4.0/22",
-        "10.0.8.0/22"
-    ]
     enable_nat_gateway = true
     single_nat_gateway = true
+    one_nat_gateway_per_az = false
 
   tags = {
     Environment = "prod"
   }
 }
 
-# EKS Cluster
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 21.0"
 
-  name               = "${var.name}-eks-cluster"   
-  kubernetes_version = "1.30"                     
+  name               = "${var.name}-eks-cluster"
+  kubernetes_version = "1.33"
 
-  vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.private_subnets         
+  addons = {
+    coredns                = {}
+    eks-pod-identity-agent = {
+      before_compute = true
+    }
+    kube-proxy             = {}
+    vpc-cni                = {
+      before_compute = true
+    }
+  }
 
-  enable_irsa = true
+  # Optional
+  endpoint_public_access = true
 
+  # Optional: Adds the current caller identity as an administrator via cluster access entry
+  enable_cluster_creator_admin_permissions = true
+
+  vpc_id                   = module.vpc.vpc_id
+  subnet_ids               = module.vpc.private_subnets
+#   control_plane_subnet_ids = module.vpc.private_subnets
+
+  # EKS Managed Node Group(s)
   eks_managed_node_groups = {
-    eks_nodes = {
+    example = {
+      # Starting on 1.30, AL2023 is the default AMI type for EKS managed node groups
+      ami_type       = "AL2023_x86_64_STANDARD"
+      instance_types = ["t3.medium"]
+
       min_size     = 2
-      max_size     = 3
+      max_size     = 5
       desired_size = 2
-
-      instance_types = ["t3.small"]
-
-      tags = {
-        Environment = "prod"
-      }
     }
   }
 
   tags = {
     Environment = "prod"
+    Terraform   = "true"
   }
 }
+
+
 
 
 # ECR for container registry
@@ -72,7 +81,7 @@ resource "aws_ecr_repository" "shopping" {
     name = "${var.name}-shopping"
 }
 
-# IAM OIDC for github actions
+# # IAM OIDC for github actions
 
 module "github_oidc" {
   source    = "terraform-aws-modules/iam/aws//modules/iam-role"
@@ -83,7 +92,7 @@ module "github_oidc" {
 
   # Allow GitHub repo(s) to assume this role
   oidc_wildcard_subjects = [
-    "your-github-org/your-repo:*"
+    "hsein1bourgi/e-commerce-application-microservices:*"
   ]
 
   policies = {

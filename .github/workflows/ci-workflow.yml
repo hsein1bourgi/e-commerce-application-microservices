@@ -1,40 +1,53 @@
-name: Continuous Integration
-
+name: CI - Build and Push Docker Images
 on:
+  push:
+    branches:
+      - main
   pull_request:
-    branches: [ "main" ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write
+  packages: read
+
+env:
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ECR_REPO_PREFIX: ecom-app
 
 jobs:
-  ci_verification:
-
+  detect-changes:
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: [14.x, 16.x, 18.x]
-
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
-    - uses: actions/checkout@v3
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
-      with:
-        node-version: ${{ matrix.node-version }}
-
-    - name: Test Customer Services
-      working-directory: ./customer
-      run: |
-        npm ci
-        npm test
-        
-    - name: Test Products Services
-      working-directory: ./products
-      run: |
-        npm ci
-        npm test        
-        
-    - name: Test Shopping Services
-      working-directory: ./shopping
-      run: |
-        npm ci
-        npm test        
-                
+      - uses: actions/checkout@v4
+        id: changes
+        with:
+          filters: 
+            customer: 
+              - '/customer/**'
+              - '!customer/node_modules/**'
+            products: 
+              - '/products/**'
+              - '!products/node_modules/**'
+            shopping: 
+              - '/shopping/**'
+              - '!shopping/node_modules/**'
+      - id: set-matrix
+        run: |
+          list=()
+          [["${{ steps.changes.outputs.customer }}"] == "true" ] && list+=("customer")
+          [["${{ steps.changes.outputs.products }}"] == "true" ] && list+=("products")
+          [["${{ steps.changes.outputs.shopping }}"] == "true" ] && list+=("shopping")
+          if [ ${#list[@]} -eq 0 ]; then
+            echo "No changes detected. Exiting..."
+            exit 0
+          fi
+          echo "matrix={\"include\":[${list[@]/#/{\"service\":\"}}${list[@]/%/\"}]}]" >> $GITHUB_OUTPUT
+      - name: Log matrix
+        run: echo ${{ steps.set-matrix.outputs.matrix }}

@@ -30,3 +30,4 @@ const StartServer = async() => {
 }
 
 StartServer();
+// console.log("Starting Customer Service...");
