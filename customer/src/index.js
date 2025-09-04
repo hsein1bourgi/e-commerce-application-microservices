@@ -30,4 +30,4 @@ const StartServer = async() => {
 }
 
 StartServer();
-// console.log("Starting Customer Service...");
+console.log("Testing detect-changes by workflow CI.");
