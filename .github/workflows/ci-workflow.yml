@@ -69,6 +69,7 @@ jobs:
           context: ./${{ matrix.service }}
           file: ./${{ matrix.service }}/Dockerfile
           push: false
+          load: true
           tags: local/${{ matrix.service }}:ci-test
           cache-from: type=gha
           cache-to: type=gha,mode=max
