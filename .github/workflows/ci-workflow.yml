@@ -59,7 +59,7 @@ jobs:
   build-local:
     name: Build Local Docker Images (No Push)
     needs: detect-changes
-    if: if: ${{ needs.detect-changes.outputs.count != '0' }}
+    if: ${{ needs.detect-changes.outputs.count != '0' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
