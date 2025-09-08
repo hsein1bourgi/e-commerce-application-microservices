@@ -74,4 +74,4 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Show image tag
-        run: echo "Built image: local/${{ matrix.service }}:ci-test"
+        run: echo "Built image :local/${{ matrix.service }}:ci-test"
