@@ -59,8 +59,7 @@ jobs:
   build-local:
     name: Build Local Docker Images (No Push)
     needs: detect-changes
-    if: ${{ fromJson(needs.detect-changes.outputs.matrix).service != null && length(fromJson(needs.detect-changes.outputs.matrix).service) > 0 }}
-    runs-on: ubuntu-latest
+    if: if: ${{ needs.detect-changes.outputs.count != '0' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
