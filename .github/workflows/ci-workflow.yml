@@ -26,35 +26,37 @@ jobs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
+
       - id: changes
-        uses: dorny/paths-filter@v2
+        uses: dorny/paths-filter@v3
         with:
           filters: |
-              customer: 
-              - '/customer/**'
+            customer:
+              - 'customer/**'
               - '!customer/node_modules/**'
-            products: 
-              - '/products/**'
+            products:
+              - 'products/**'
               - '!products/node_modules/**'
-            shopping: 
-              - '/shopping/**'
+            shopping:
+              - 'shopping/**'
               - '!shopping/node_modules/**'
+
       - id: set-matrix
         run: |
           list=()
-          [["${{ steps.changes.outputs.customer }}"] == "true" ] && list+=("customer")
-          [["${{ steps.changes.outputs.products }}"] == "true" ] && list+=("products")
-          [["${{ steps.changes.outputs.shopping }}"] == "true" ] && list+=("shopping")
+          [[ "${{ steps.changes.outputs.customer }}" == "true" ]] && list+=('"customer"')
+          [[ "${{ steps.changes.outputs.products }}" == "true" ]] && list+=('"products"')
+          [[ "${{ steps.changes.outputs.shopping }}" == "true" ]] && list+=('"shopping"')
           if [ ${#list[@]} -eq 0 ]; then
-            echo "No changes detected. Exiting..."
-            exit 0
+            echo 'matrix={"service":[]}' >> "$GITHUB_OUTPUT"
+          else
+            echo "matrix={\"service\":[${list[*]}]}" >> "$GITHUB_OUTPUT"
           fi
-          echo "matrix={\"include\":[${list[@]/#/{\"service\":\"}}${list[@]/%/\"}]}]" >> $GITHUB_OUTPUT
-      - name: Log matrix
-        run: echo ${{ steps.set-matrix.outputs.matrix }}
 
-  # Build local Docker images 
-  build-local: 
+      - name: Log matrix
+        run: echo '${{ steps.set-matrix.outputs.matrix }}'
+
+  build-local:
     name: Build Local Docker Images (No Push)
     needs: detect-changes
     if: ${{ fromJson(needs.detect-changes.outputs.matrix).service != null && length(fromJson(needs.detect-changes.outputs.matrix).service) > 0 }}
@@ -67,33 +69,33 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
-      - name: Cache Docker layers
+
+      - name: Extract Docker metadata (tags/labels)
         id: meta
-        uses: docker/metadata-actions@v5
+        uses: docker/metadata-action@v5
         with:
           images: local/${{ matrix.service }}
-          tags:
+          tags: |
             type=sha
-            type=raw,ref=ci-local
-          
+            type=raw,value=ci-local
           labels: |
             org.opencontainers.image.source=${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
-      
-      - name: Build (no push) with GHA cache 
+
+      - name: Build (no push) with GHA cache
         id: build
         uses: docker/build-push-action@v5
         with:
           context: ./${{ matrix.service }}
-          psuh: false
+          push: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: true
           sbom: true
-          
+
       - name: Show produced tags
-        run: echo ${{ steps.build.outputs.tags }}
+        run: echo '${{ steps.meta.outputs.tags }}'
+
 
