@@ -30,5 +30,4 @@ const StartServer = async() => {
 }
 
 StartServer();
-console.log("Testing detect-changes by workflow CI + Build without push.");
-console.log("Starting Customer Service...");
+console.log("Testing detect-changes by workflow CI + Build witout push");
