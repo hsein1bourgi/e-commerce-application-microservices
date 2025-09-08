@@ -30,7 +30,7 @@ jobs:
         uses: dorny/paths-filter@v2
         with:
           filters: |
-            customer: 
+              customer: 
               - '/customer/**'
               - '!customer/node_modules/**'
             products: 
@@ -52,3 +52,48 @@ jobs:
           echo "matrix={\"include\":[${list[@]/#/{\"service\":\"}}${list[@]/%/\"}]}]" >> $GITHUB_OUTPUT
       - name: Log matrix
         run: echo ${{ steps.set-matrix.outputs.matrix }}
+
+  # Build local Docker images 
+  build-local: 
+    name: Build Local Docker Images (No Push)
+    needs: detect-changes
+    if: ${{ fromJson(needs.detect-changes.outputs.matrix).service != null && length(fromJson(needs.detect-changes.outputs.matrix).service) > 0 }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Cache Docker layers
+        id: meta
+        uses: docker/metadata-actions@v5
+        with:
+          images: local/${{ matrix.service }}
+          tags:
+            type=sha
+            type=raw,ref=ci-local
+          
+          labels: |
+            org.opencontainers.image.source=${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+      
+      - name: Build (no push) with GHA cache 
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.service }}
+          psuh: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true
+          sbom: true
+          
+      - name: Show produced tags
+        run: echo ${{ steps.build.outputs.tags }}
+
