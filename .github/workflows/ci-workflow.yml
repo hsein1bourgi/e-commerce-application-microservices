@@ -1,19 +1,21 @@
+name: CI - Detect Changes Only
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
 jobs:
   detect-changes:
-    name: Detect changed services
     runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-      count:  ${{ steps.set-matrix.outputs.count }}
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # always fetch full history for reliable diff
+          fetch-depth: 0
 
-      - name: Compute changed services
-        id: set-matrix
+      - name: Compute changed files
         run: |
-          # Figure out the diff range
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             BASE="${{ github.event.pull_request.base.sha }}"
             HEAD="${{ github.sha }}"
@@ -28,24 +30,4 @@ jobs:
           fi
 
           echo "Using diff range: $RANGE"
-
-          CHANGED=$(git diff --name-only --diff-filter=ACMR $RANGE || true)
-          echo "Changed files:"; echo "$CHANGED"
-
-          list=()
-          [[ "$CHANGED" =~ (^|[[:space:]])customer/ ]] && list+=('"customer"')
-          [[ "$CHANGED" =~ (^|[[:space:]])products/ ]] && list+=('"products"')
-          [[ "$CHANGED" =~ (^|[[:space:]])shopping/ ]] && list+=('"shopping"')
-
-          if [ ${#list[@]} -eq 0 ]; then
-            echo 'matrix={"service":[]}' >> "$GITHUB_OUTPUT"
-            echo 'count=0' >> "$GITHUB_OUTPUT"
-          else
-            echo "matrix={\"service\":[${list[*]}]}" >> "$GITHUB_OUTPUT"
-            echo "count=${#list[@]}" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Debug
-        run: |
-          echo "matrix => ${{ steps.set-matrix.outputs.matrix }}"
-          echo "count  => ${{ steps.set-matrix.outputs.count }}"
+          git diff --name-only --diff-filter=ACMR $RANGE || true
