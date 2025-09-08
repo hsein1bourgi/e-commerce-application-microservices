@@ -22,4 +22,4 @@ const StartServer = async() => {
 }
 
 StartServer();
-console.log("testing detect-changes by workflow CI + Build witout push");
+console.log("Update shopping to try Trivy scan by pull request");
