@@ -24,6 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
+      count: ${{ steps.set-matrix.outputs.count }}
     steps:
       - uses: actions/checkout@v4
 
@@ -49,12 +50,21 @@ jobs:
           [[ "${{ steps.changes.outputs.shopping }}" == "true" ]] && list+=('"shopping"')
           if [ ${#list[@]} -eq 0 ]; then
             echo 'matrix={"service":[]}' >> "$GITHUB_OUTPUT"
+            echo "count=0" >> "$GITHUB_OUTPUT"
           else
             echo "matrix={\"service\":[${list[*]}]}" >> "$GITHUB_OUTPUT"
+            echo "count=${#list[@]}" >> "$GITHUB_OUTPUT"
+    
+
           fi
 
-      - name: Log matrix
-        run: echo '${{ steps.set-matrix.outputs.matrix }}'
+      - name: Debug Filters
+        run: |
+          echo "Customer changed: ${{ steps.changes.outputs.customer }}"
+          echo "Products changed: ${{ steps.changes.outputs.products }}"
+          echo "Shopping changed: ${{ steps.changes.outputs.shopping }}"
+          echo "Matrix: ${{ steps.set-matrix.outputs.matrix }}"
+          echo "Count: ${{ steps.set-matrix.outputs.count }}"
 
   build-local:
     name: Build Local Docker Images (No Push)
