@@ -69,10 +69,10 @@ jobs:
           context: ./${{ matrix.service }}
           file: ./${{ matrix.service }}/Dockerfile
           push: false
-          load: true
           tags: local/${{ matrix.service }}:ci-test
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          load: ${{ github.event_name == 'pull_request' }}
           provenance: true
           sbom: true
 
