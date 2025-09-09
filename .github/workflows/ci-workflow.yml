@@ -69,12 +69,13 @@ jobs:
           context: ./${{ matrix.service }}
           file: ./${{ matrix.service }}/Dockerfile
           push: false
-          load: true
           tags: local/${{ matrix.service }}:ci-test
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          provenance: true
-          sbom: true
+          # Use load for PRs (so Trivy can scan), use sbom+provenance for main builds
+          load: ${{ github.event_name == 'pull_request' }}
+          sbom:  ${{ github.ref == 'refs/heads/main' }}
+          provenance: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Show image tag
         run: echo "Built image :local/${{ matrix.service }}:ci-test"
