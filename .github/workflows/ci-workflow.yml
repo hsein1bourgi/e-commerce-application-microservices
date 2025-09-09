@@ -72,9 +72,10 @@ jobs:
           tags: local/${{ matrix.service }}:ci-test
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # Use load for PRs (so Trivy can scan), use sbom+provenance for main builds
           load: ${{ github.event_name == 'pull_request' }}
-          provenance: true
-          sbom: true
+          sbom:  ${{ github.ref == 'refs/heads/main' }}
+          provenance: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Show image tag
         run: echo "Built image :local/${{ matrix.service }}:ci-test"
