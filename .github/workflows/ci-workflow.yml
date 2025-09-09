@@ -80,18 +80,18 @@ jobs:
       - name: Show image tag
         run: echo "Built image :local/${{ matrix.service }}:ci-test"
  
-  # scan:
-  #   needs: detect-changes
-  #   if: ${{ github.event_name == 'pull_request' && needs.detect-changes.outputs.count != '0' }}
-  #   runs-on: ubuntu-latest
-  #   strategy:
-  #     fail-fast: false
-  #     matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
-  #   steps:
-  #     - name: Trivy scan
-  #       uses: aquasecurity/trivy-action@0.28.0
-  #       with:
-  #         image-ref: local/${{ matrix.service }}:ci-test
-  #         format: 'table'
-  #         severity: 'CRITICAL,HIGH'
-  #         ignore-unfixed: true
+  scan:
+    needs: detect-changes
+    if: ${{ github.event_name == 'pull_request' && needs.detect-changes.outputs.count != '0' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
+    steps:
+      - name: Trivy scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: local/${{ matrix.service }}:ci-test
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
