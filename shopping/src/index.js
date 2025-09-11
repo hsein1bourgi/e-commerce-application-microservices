@@ -22,3 +22,4 @@ const StartServer = async() => {
 }
 
 StartServer();
+console.log("Starting Products Service...");
