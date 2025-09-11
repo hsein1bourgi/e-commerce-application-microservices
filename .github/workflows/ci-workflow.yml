@@ -1,8 +1,9 @@
-name: CI - Detect, Build, Scan
+name: CI - Detect & Build Only
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
   pull_request:
 
 jobs:
@@ -37,19 +38,19 @@ jobs:
           echo "$CHANGED"
 
           list=()
-          echo "$CHANGED" | grep -q '^customer/'  && list+=('"customer"')
-          echo "$CHANGED" | grep -q '^products/'  && list+=('"products"')
-          echo "$CHANGED" | grep -q '^shopping/'  && list+=('"shopping"')
+          echo "$CHANGED" | grep -q '^customer/'  && list+=('{"service":"customer"}')
+          echo "$CHANGED" | grep -q '^products/'  && list+=('{"service":"products"}')
+          echo "$CHANGED" | grep -q '^shopping/'  && list+=('{"service":"shopping"}')
 
           if [ ${#list[@]} -eq 0 ]; then
-            echo 'matrix={"service":[]}' >> "$GITHUB_OUTPUT"
+            echo 'matrix={"include":[]}' >> "$GITHUB_OUTPUT"
             echo 'count=0' >> "$GITHUB_OUTPUT"
           else
-            echo "matrix={\"service\":[${list[*]}]}" >> "$GITHUB_OUTPUT"
+            echo "matrix={\"include\":[${list[*]}]}" >> "$GITHUB_OUTPUT"
             echo "count=${#list[@]}" >> "$GITHUB_OUTPUT"
           fi
 
-  build:
+  build-local:
     needs: detect-changes
     if: ${{ needs.detect-changes.outputs.count != '0' }}
     runs-on: ubuntu-latest
@@ -60,9 +61,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
 
-      # --- PR build (no push, save as artifact) ---
-      - name: Build image (PR build)
-        if: ${{ github.event_name == 'pull_request' }}
+      - name: Build image (no push)
         uses: docker/build-push-action@v5
         with:
           context: ./${{ matrix.service }}
@@ -70,75 +69,41 @@ jobs:
           push: false
           load: true
           tags: local/${{ matrix.service }}:ci-test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Show image tag
+        run: echo "Built image: local/${{ matrix.service }}:ci-test"
 
       - name: Save image as tar
-        if: ${{ github.event_name == 'pull_request' }}
         run: docker save -o ${{ matrix.service }}.tar local/${{ matrix.service }}:ci-test
 
       - name: Upload image artifact
-        if: ${{ github.event_name == 'pull_request' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.service }}-image
           path: ${{ matrix.service }}.tar
 
-      # --- Main build (push to ECR) ---
-      - name: Configure AWS credentials
-        if: github.ref == 'refs/heads/main'
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/ecom-app-github-actions-role
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      - name: Login to Amazon ECR
-        if: github.ref == 'refs/heads/main'
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build & Push image (Main build)
-        if: github.ref == 'refs/heads/main'
-        uses: docker/build-push-action@v5
-        with:
-          context: ./${{ matrix.service }}
-          file: ./${{ matrix.service }}/Dockerfile
-          push: true
-          tags: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/ecom-app/${{ matrix.service }}:${{ github.sha }}
-          provenance: true
-          sbom: true
-
-  scan-pr:
-    needs: build
-    if: github.event_name == 'pull_request' && needs.detect-changes.outputs.count != '0'
+  scan:
+    needs: build-local
+    if: ${{ github.event_name == 'pull_request' && needs.detect-changes.outputs.count != '0' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.detect-changes.outputs.matrix || '{"service":["none"]}') }}
-
+      matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
     steps:
-      - uses: actions/download-artifact@v4
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
         with:
           name: ${{ matrix.service }}-image
 
-      - run: docker load -i ${{ matrix.service }}.tar
+      - name: Load Docker image
+        run: docker load -i ${{ matrix.service }}.tar
 
-      - uses: aquasecurity/trivy-action@0.28.0
+      - name: Trivy scan
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: local/${{ matrix.service }}:ci-test
-          format: 'table'
-          severity: 'CRITICAL,HIGH'
-          ignore-unfixed: true
-
-  scan-main:
-    needs: build
-    if: github.ref == 'refs/heads/main' && needs.detect-changes.outputs.count != '0'
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJson(needs.detect-changes.outputs.matrix || '{"service":["none"]}') }}
-
-    steps:
-      - uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/ecom-app/${{ matrix.service }}:${{ github.sha }}
           format: 'table'
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
