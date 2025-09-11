@@ -95,14 +95,11 @@ jobs:
           path: ${{ matrix.service }}.tar
 
   scan:
-    # Make sure we can access detect-changes outputs and that images are built
     needs: [detect-changes, build-local]
-    # Skip when no services changed; run only on PRs
     if: ${{ github.event_name == 'pull_request' && needs.detect-changes.outputs.count != '0' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      # Use the JSON produced by detect-changes, e.g. {"include":[{"service":"shopping"}]}
       matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
     steps:
       - name: Download image artifact
