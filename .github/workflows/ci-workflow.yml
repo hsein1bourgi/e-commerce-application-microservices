@@ -33,8 +33,10 @@ jobs:
             fi
           fi
 
-          echo "Using diff range: $RANGE"
+          echo "🔎 Using diff range: $RANGE"
           CHANGED=$(git diff --name-only --diff-filter=ACMR $RANGE || true)
+
+          echo "📂 Changed files:"
           echo "$CHANGED"
 
           list=()
@@ -43,13 +45,15 @@ jobs:
           echo "$CHANGED" | grep -q '^shopping/'  && list+=('{"service":"shopping"}')
 
           if [ ${#list[@]} -eq 0 ]; then
-            echo 'matrix={"include":[]}' >> "$GITHUB_OUTPUT"
-            echo 'count=0' >> "$GITHUB_OUTPUT"
+            echo "matrix={\"include\":[]}" >> "$GITHUB_OUTPUT"
+            echo "count=0" >> "$GITHUB_OUTPUT"
+            echo "⚠️ No services detected."
           else
             echo "matrix={\"include\":[${list[*]}]}" >> "$GITHUB_OUTPUT"
             echo "count=${#list[@]}" >> "$GITHUB_OUTPUT"
-            echo "✅ Matrix built with ${#list[@]} service(s)."
+            echo "✅ Matrix filled with ${#list[@]} service(s)."
           fi
+
       - name: Debug outputs
         run: |
           echo "Matrix: ${{ needs.detect-changes.outputs.matrix }}"
