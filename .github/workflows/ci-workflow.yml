@@ -50,6 +50,10 @@ jobs:
             echo "count=${#list[@]}" >> "$GITHUB_OUTPUT"
             echo "✅ Matrix built with ${#list[@]} service(s)."
           fi
+      - name: Debug outputs
+        run: |
+          echo "Matrix: ${{ needs.detect-changes.outputs.matrix }}"
+          echo "Count: ${{ needs.detect-changes.outputs.count }}"
 
       - name: Debug outputs
         run: |
@@ -98,7 +102,6 @@ jobs:
       fail-fast: false
       matrix:
         include: ${{ fromJson(needs.detect-changes.outputs.matrix).include }}
-
     steps:
       - name: Download image artifact
         uses: actions/download-artifact@v4
