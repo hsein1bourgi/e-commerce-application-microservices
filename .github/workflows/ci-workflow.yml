@@ -32,18 +32,21 @@ jobs:
               RANGE="origin/main...HEAD"
             fi
           fi
+
           echo "Using diff range: $RANGE"
           CHANGED=$(git diff --name-only --diff-filter=ACMR $RANGE || true)
           echo "$CHANGED"
+
           list=()
-          echo "$CHANGED" | grep -q '^customer/'  && list+=('"customer"')
-          echo "$CHANGED" | grep -q '^products/'  && list+=('"products"')
-          echo "$CHANGED" | grep -q '^shopping/'  && list+=('"shopping"')
+          echo "$CHANGED" | grep -q '^customer/'  && list+=('{"service":"customer"}')
+          echo "$CHANGED" | grep -q '^products/'  && list+=('{"service":"products"}')
+          echo "$CHANGED" | grep -q '^shopping/'  && list+=('{"service":"shopping"}')
+
           if [ ${#list[@]} -eq 0 ]; then
-            echo 'matrix={"service":[]}' >> "$GITHUB_OUTPUT"
+            echo 'matrix={"include":[]}' >> "$GITHUB_OUTPUT"
             echo 'count=0' >> "$GITHUB_OUTPUT"
           else
-            echo "matrix={\"service\":[${list[*]}]}" >> "$GITHUB_OUTPUT"
+            echo "matrix={\"include\":[${list[*]}]}" >> "$GITHUB_OUTPUT"
             echo "count=${#list[@]}" >> "$GITHUB_OUTPUT"
           fi
 
@@ -72,7 +75,6 @@ jobs:
       - name: Show image tag
         run: echo "Built image :local/${{ matrix.service }}:ci-test"
 
-      # Save + upload as artifact so scan job can use it
       - name: Save image as tar
         run: docker save -o ${{ matrix.service }}.tar local/${{ matrix.service }}:ci-test
 
