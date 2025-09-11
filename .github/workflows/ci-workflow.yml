@@ -83,7 +83,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Show image tag
-        run: echo "Built image: local/${{ matrix.service }}:ci-test"
+        run: echo "Built image  local/${{ matrix.service }}:ci-test"
 
       - name: Save image as tar
         run: docker save -o ${{ matrix.service }}.tar local/${{ matrix.service }}:ci-test
