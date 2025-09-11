@@ -97,7 +97,7 @@ jobs:
       fail-fast: false
       matrix:
         include: ${{ fromJson(needs.detect-changes.outputs.matrix).include }}
-
+        
     steps:
       - name: Download image artifact
         uses: actions/download-artifact@v4
