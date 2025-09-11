@@ -101,7 +101,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJson(needs.detect-changes.outputs.matrix).include }}
+        include: ${{ fromJson(needs.detect-changes.outputs.matrix || '{"include":[]}' ).include }}
+
 
     steps:
       - name: Download image artifact
