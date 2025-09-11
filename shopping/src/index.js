@@ -22,4 +22,3 @@ const StartServer = async() => {
 }
 
 StartServer();
-console.log("Update shopping to try Trivy scan by pull request");
