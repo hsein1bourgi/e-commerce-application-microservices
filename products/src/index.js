@@ -22,5 +22,5 @@ const StartServer = async() => {
 }
 
 StartServer();
-console.log("Fix bugs in products service");
-console.log("Starting Products Service...");
+
+console.log("Update shopping to try Trivy scan by pull request");
