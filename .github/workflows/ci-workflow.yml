@@ -104,7 +104,6 @@ jobs:
       fail-fast: false
       # Use the JSON produced by detect-changes, e.g. {"include":[{"service":"shopping"}]}
       matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
-
     steps:
       - name: Download image artifact
         uses: actions/download-artifact@v4
