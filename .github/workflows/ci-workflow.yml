@@ -48,6 +48,7 @@ jobs:
           else
             echo "matrix={\"include\":[${list[*]}]}" >> "$GITHUB_OUTPUT"
             echo "count=${#list[@]}" >> "$GITHUB_OUTPUT"
+            echo "✅ Matrix built with ${#list[@]} service(s)."
           fi
 
   build-local:
@@ -90,7 +91,10 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.detect-changes.outputs.matrix || '{"include":[]}' ) }}
+      matrix:
+        include: ${{ fromJson(needs.detect-changes.outputs.matrix).include }}
+
+
 
     steps:
       - name: Download image artifact
