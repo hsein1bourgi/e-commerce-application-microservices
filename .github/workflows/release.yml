@@ -1,0 +1,107 @@
+name: Release - Build & Push to ECR
+
+on:
+  push:
+    branches: [ main ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read   # minimal at workflow level
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+      count:  ${{ steps.set.outputs.count }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - id: set
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Robust base for first push to main
+          if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ] || [ -z "${{ github.event.before }}" ]; then
+            BASE="$(git rev-list --max-parents=0 HEAD)"
+          else
+            BASE="${{ github.event.before }}"
+          fi
+          HEAD="${{ github.sha }}"
+
+          echo "🔎 Diff range: $BASE..$HEAD"
+          CHANGED="$(git diff --name-only --diff-filter=ACMR "$BASE..$HEAD" || true)"
+          echo "📂 Changed files:"; printf '%s\n' "$CHANGED"
+
+          list=()
+          grep -q '^customer/' <<<"$CHANGED" && list+=('{"service":"customer"}')
+          grep -q '^products/' <<<"$CHANGED" && list+=('{"service":"products"}')
+          grep -q '^shopping/' <<<"$CHANGED" && list+=('{"service":"shopping"}')
+
+          if [ ${#list[@]} -eq 0 ]; then
+            echo 'matrix={"include":[]}' >> "$GITHUB_OUTPUT"
+            echo 'count=0' >> "$GITHUB_OUTPUT"
+            echo "⚠️ No services detected."
+          else
+            JSON="{\"include\":[${list[*]}]}"
+            echo "matrix=$JSON" >> "$GITHUB_OUTPUT"
+            echo "count=${#list[@]}" >> "$GITHUB_OUTPUT"
+            echo "✅ Matrix: $JSON"
+          fi
+
+  push-to-ecr:
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.count != '0' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write     # OIDC only where needed
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/ecom-app-github-actions-role
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Compute repo & tags
+        id: vars
+        shell: bash
+        run: |
+          SHA7=${GITHUB_SHA::7}
+          REPO="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/ecom-app-${{ matrix.service }}"
+          echo "repo=$REPO" >> "$GITHUB_OUTPUT"
+          printf 'tags<<EOF\n%s\nEOF\n' "$REPO:sha-$SHA7"$'\n'"$REPO:main" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push to ECR
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.service }}
+          file: ./${{ matrix.service }}/Dockerfile
+          push: true
+          tags: ${{ steps.vars.outputs.tags }}
+          labels: |
+            org.opencontainers.image.source=${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.ref.name=${{ github.ref_name }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+      - name: Output pushed tags
+        run: |
+          echo "Pushed ${{ matrix.service }}:"
+          echo "${{ steps.vars.outputs.tags }}"
