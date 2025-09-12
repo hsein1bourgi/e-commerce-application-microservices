@@ -23,3 +23,5 @@ const StartServer = async() => {
 
 StartServer();
 
+console.log("Starting Products Service...");
+console.log("Fix bugs in products service");
