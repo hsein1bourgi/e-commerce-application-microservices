@@ -1,0 +1,104 @@
+name: PR CI - Detect, Build, Scan
+
+on:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      count:  ${{ steps.set-matrix.outputs.count }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute changed services
+        id: set-matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.sha }}"
+          RANGE="$BASE...$HEAD"
+
+          echo "🔎 Using diff range: $RANGE"
+          CHANGED="$(git diff --name-only --diff-filter=ACMR $RANGE || true)"
+
+          echo "📂 Changed files:"
+          printf '%s\n' "$CHANGED"
+
+          list=()
+          grep -q '^customer/' <<<"$CHANGED" && list+=('{"service":"customer"}')
+          grep -q '^products/' <<<"$CHANGED" && list+=('{"service":"products"}')
+          grep -q '^shopping/' <<<"$CHANGED" && list+=('{"service":"shopping"}')
+
+          if [ ${#list[@]} -eq 0 ]; then
+            echo 'matrix={"include":[]}' >> "$GITHUB_OUTPUT"
+            echo 'count=0' >> "$GITHUB_OUTPUT"
+            echo "⚠️ No services detected."
+          else
+            JSON="{\"include\":[${list[*]}]}"
+            echo "matrix=$JSON" >> "$GITHUB_OUTPUT"
+            echo "count=${#list[@]}" >> "$GITHUB_OUTPUT"
+            echo "✅ Matrix filled with ${#list[@]} service(s): $JSON"
+          fi
+
+      - name: Debug outputs
+        run: |
+          echo "Matrix: ${{ steps.set-matrix.outputs.matrix }}"
+          echo "Count:  ${{ steps.set-matrix.outputs.count }}"
+
+  build-local:
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.count != '0' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image (no push)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.service }}
+          file: ./${{ matrix.service }}/Dockerfile
+          push: false
+          load: true
+          tags: local/${{ matrix.service }}:ci-test
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+      - name: Save image as tar
+        run: docker save -o ${{ matrix.service }}.tar local/${{ matrix.service }}:ci-test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.service }}-image
+          path: ${{ matrix.service }}.tar
+          retention-days: 3
+
+  scan:
+    needs: [detect-changes, build-local]
+    if: ${{ needs.detect-changes.outputs.count != '0' }}  # PR-only workflow, no need to check event_name
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.service }}-image
+      - name: Load Docker image
+        run: docker load -i ${{ matrix.service }}.tar
+      - name: Trivy scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: local/${{ matrix.service }}:ci-test
+          format: table
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true

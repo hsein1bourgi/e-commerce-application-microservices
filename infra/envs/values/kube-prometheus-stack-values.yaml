@@ -2,8 +2,8 @@ grafana:
   adminUser: admin
   adminPassword: prom-operator
   service:
-    type: LoadBalancer   # expose Grafana directly
+    type: LoadBalancer   
 
 prometheus:
   service:
-    type: LoadBalancer   # expose Prometheus if needed
+    type: LoadBalancer   
